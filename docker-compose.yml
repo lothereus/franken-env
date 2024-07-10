@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: franken
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: project-app
+    working_dir: /srv
+    ports:
+      - "80:80" # HTTP
+      - "443:443" # HTTPS
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - .:/srv
+      - caddy_data:/data
+      - caddy_config:/config
+    tty: true
+    networks:
+      - app-network
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: project-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_DATABASE: 'project'
+      MYSQL_USER: 'project'
+      MYSQL_PASSWORD: 'project'
+    volumes:
+      - project-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - app-network
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+      - "--sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: project-phpmyadmin
+    networks:
+      - app-network
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=password
+      - UPLOAD_LIMIT=200M
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  project-data:
+  caddy_config:
+  caddy_data:
